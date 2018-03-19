@@ -1,0 +1,25 @@
+{
+  "name": "project2-remittance",
+  "version": "1.0.0",
+  "description": "B9Lab Project 2 - Remittance",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhunchong87/project2-remittance.git"
+  },
+  "author": "Tay Zhun Chong",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zhunchong87/project2-remittance/issues"
+  },
+  "dependencies": {
+    "bluebird": "latest"
+  },
+  "homepage": "https://github.com/zhunchong87/project2-remittance#readme"
+}
