@@ -2,6 +2,8 @@ var Remittance = artifacts.require("./Remittance.sol");
 const Promise = require("bluebird");
 Promise.promisifyAll(web3.eth, { suffix: "Promise" });
 
+const web3Utils = require("web3-utils");
+
 contract("Remittance", function(accounts){
 	// Declare test variables here
 	var remittanceContract;
@@ -11,6 +13,7 @@ contract("Remittance", function(accounts){
 
 	// The unit of measurement here is ether
 	var remitAmt = web3.toWei(0.01, "ether");
+	var secret = web3Utils.soliditySha3(carol, "password1", "password2");
 
 	// Set the initial test state before running each test
 	beforeEach("deploy new Remittance instance", function(){
@@ -21,7 +24,7 @@ contract("Remittance", function(accounts){
 	// Write tests here
 	describe("deposit", function(){
 		it("should allow Alice to deposit remittance.", function(){
-			return remittanceContract.deposit(carol, "password1", "password2", {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, secret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
@@ -39,7 +42,7 @@ contract("Remittance", function(accounts){
 
 	describe("withdraw", function(){
 		beforeEach("deposit remit amount", function(){
-			return remittanceContract.deposit(carol, "password1", "password2", {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, secret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");

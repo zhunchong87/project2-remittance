@@ -19,7 +19,8 @@
     "url": "https://github.com/zhunchong87/project2-remittance/issues"
   },
   "dependencies": {
-    "bluebird": "latest"
+    "bluebird": "latest",
+    "web3-utils": "latest"
   },
   "homepage": "https://github.com/zhunchong87/project2-remittance#readme"
 }

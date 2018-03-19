@@ -11,16 +11,15 @@ contract Remittance{
 	/*
 		Accept remittance deposit. 
 	*/
-	function deposit(address receiver, string password1, string password2) 
+	function deposit(address receiver, bytes32 secret) 
 		public 
 		payable 
 	{
 		// Validate basic input
-		require(receiver != address(0) && bytes(password1).length >= 4 && bytes(password2).length >= 4);
+		require(receiver != address(0));
 		require(msg.value > 0);
 
 		// Store remittance amount
-		bytes32 secret = keccak256(receiver, password1, password2);
 		remitBalances[secret] = msg.value;
 		LogDeposit(msg.sender, receiver, msg.value);
 	}
