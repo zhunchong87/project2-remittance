@@ -17,8 +17,10 @@ contract("Remittance", function(accounts){
 
 	// Secret will consist of:
 	// Sender's Address, Ether Exchange Address, Receipient name, Exchange's OTP, Receipient's OTP
-	const secret = web3Utils.soliditySha3(alice, carol, "bob", "password1", "password2");
-	const secret2 = web3Utils.soliditySha3(alice, carol, "anotherPerson", "password1", "password2");
+	const secret = web3Utils.soliditySha3(alice, "bob", "password1", "password2");
+	const depositSecret = web3Utils.soliditySha3(carol, secret);
+	const secret2 = web3Utils.soliditySha3(alice, "anotherPerson", "password1", "password2");
+	const depositSecret2 = web3Utils.soliditySha3(carol, secret2);
 
 	// Set the initial test state before running each test
 	beforeEach("deploy new Remittance instance", function(){
@@ -29,7 +31,7 @@ contract("Remittance", function(accounts){
 	// Write tests here
 	describe("deposit", function(){
 		it("should allow Alice to deposit remittance to the ether exchange.", function(){
-			return remittanceContract.deposit(carol, remitDuration, secret, {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, remitDuration, depositSecret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
@@ -46,7 +48,7 @@ contract("Remittance", function(accounts){
 		});
 
 		it("should not allow Alice to deposit remittance to the ether exchange if the same password is used again on the same receipient.", function(){
-			return remittanceContract.deposit(carol, remitDuration, secret, {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, remitDuration, depositSecret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
@@ -55,7 +57,7 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
 				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
 				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				return remittanceContract.deposit(carol, remitDuration, secret, {from: alice, value: remitAmt})
+				return remittanceContract.deposit(carol, remitDuration, depositSecret, {from: alice, value: remitAmt})
 			})
 			.then(function(){
 				assert.fail();
@@ -66,7 +68,7 @@ contract("Remittance", function(accounts){
 		});
 
 		it("should allow Alice to deposit remittance to the ether exchange if the same password is used on different receipients.", function(){
-			return remittanceContract.deposit(carol, remitDuration, secret, {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, remitDuration, depositSecret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
@@ -75,7 +77,7 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
 				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
 				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				return remittanceContract.deposit(carol, remitDuration, secret2, {from: alice, value: remitAmt})
+				return remittanceContract.deposit(carol, remitDuration, depositSecret2, {from: alice, value: remitAmt})
 			})
 			.then(function(txn){
 				// Check deposit event is logged
@@ -89,7 +91,7 @@ contract("Remittance", function(accounts){
 		});
 
 		it("should not allow Alice to deposit remittance if the remittance duration exceeds the limit.", function(){
-			return remittanceContract.deposit(carol, remitDuration + 1, secret, {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, remitDuration + 1, depositSecret, {from: alice, value: remitAmt})
 			.then(function(){
 				assert.fail();
 			})
@@ -101,7 +103,7 @@ contract("Remittance", function(accounts){
 
 	describe("withdraw", function(){
 		beforeEach("deposit remit amount", function(){
-			return remittanceContract.deposit(carol, remitDuration, secret, {from: alice, value: remitAmt})
+			return remittanceContract.deposit(carol, remitDuration, depositSecret, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
@@ -120,7 +122,7 @@ contract("Remittance", function(accounts){
 			return web3.eth.getBalancePromise(carol)
 			.then(function(_carolInitialBalance){
 				carolInitialBalance = _carolInitialBalance;
-				return remittanceContract.withdraw(secret, {from: carol})
+				return remittanceContract.withdraw(carol, secret, {from: carol})
 			})
 			.then(function(txn){
 				// Check withdraw event is logged
@@ -143,6 +145,43 @@ contract("Remittance", function(accounts){
 			});
 		});
 
+		it("should not allow Carol to withdraw remittance again within the deadline.", function(){
+			var carolInitialBalance;
+			var gasUsed, gasPrice;
+
+			return web3.eth.getBalancePromise(carol)
+			.then(function(_carolInitialBalance){
+				carolInitialBalance = _carolInitialBalance;
+				return remittanceContract.withdraw(carol, secret, {from: carol})
+			})
+			.then(function(txn){
+				// Check withdraw event is logged
+				assert.strictEqual(txn.logs.length, 1, 				 	"Withdraw event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogWithdraw",	"Event logged is not a Withdraw event.");
+				assert.strictEqual(txn.logs[0].args.withdrawer, carol, 	"Wrong withdrawer.");
+				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong withdrawal amount.");
+				gasUsed = txn.receipt.gasUsed;
+				return web3.eth.getTransactionPromise(txn.tx);
+			})
+			.then(function(txn){
+				gasPrice = txn.gasPrice;
+				return web3.eth.getBalancePromise(carol);
+			})
+			.then(function(carolAfterWithdrawBalance){
+				var txnFee = gasPrice.times(gasUsed);
+				assert.strictEqual(carolAfterWithdrawBalance.minus(carolInitialBalance).plus(txnFee).toString(10), 
+									remitAmt, 
+									"Something is wrong with Carol's balance after withdrawal.");
+				return remittanceContract.withdraw(carol, secret, {from: carol});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
 		it("should not allow Carol to withdraw remittance if deadline has exceeded.", function(){
 			var currentDuration = 0;
 
@@ -157,7 +196,7 @@ contract("Remittance", function(accounts){
 				 		return Promise.delay(100).then(tryAgain);
 				 	}
 				 	else{
-				 		return remittanceContract.withdraw(secret, {from: carol});
+				 		return remittanceContract.withdraw(carol, secret, {from: carol});
 				 	}
 				 });
 
@@ -190,7 +229,7 @@ contract("Remittance", function(accounts){
 				 		return Promise.delay(100).then(tryAgain);
 				 	}
 				 	else{
-				 		return remittanceContract.withdraw(secret, {from: alice});
+				 		return remittanceContract.withdraw(carol, secret, {from: alice});
 				 	}
 				 });
 
