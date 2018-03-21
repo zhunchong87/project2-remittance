@@ -1,9 +1,18 @@
 pragma solidity ^0.4.17;
 
 contract Remittance{
-	mapping(bytes32 => uint) public remitBalances;
-	event LogDeposit(address indexed sender, address indexed receiver, uint amount);
-	event LogWithdraw(address indexed withdrawer, uint amount);
+	mapping(bytes32 => RemitStruct) public remittances;
+	uint constant DURATION_LIMIT = 10;
+
+	event LogDeposit(address indexed sender, address indexed receiver, uint amount, uint deadline);
+	event LogWithdraw(address indexed withdrawer, uint amount, uint deadline);
+
+	struct RemitStruct{
+		address remitOwner;
+		address remitReceiver;
+		uint remitAmt;
+		uint deadline;
+	}
 
 	function Remittance() public{
 	}
@@ -11,37 +20,55 @@ contract Remittance{
 	/*
 		Accept remittance deposit. 
 	*/
-	function deposit(address receiver, bytes32 secret) 
+	function deposit(address receiver, uint duration, bytes32 secret) 
 		public 
 		payable 
 	{
+		/* 
+			Check that there is no remittance collision.
+			If there is collision, that means the sender already has an pending remittance with the same set of password
+			with the exchange, waiting to be withdrawn by the receiver.
+			In this case, the deposit should be rejected so that the receiver is able to have multiple pending remittance at once.
+		*/  
+		require(remittances[secret].remitOwner == address(0));
+
 		// Validate basic input
 		require(receiver != address(0));
 		require(msg.value > 0);
+		require(duration <= DURATION_LIMIT);
 
-		// Store remittance amount
-		remitBalances[secret] = msg.value;
-		LogDeposit(msg.sender, receiver, msg.value);
+		// Store remittance
+		RemitStruct memory curRemittance;
+		curRemittance.remitOwner = msg.sender;
+		curRemittance.remitReceiver = receiver;
+		curRemittance.remitAmt = msg.value;
+		curRemittance.deadline = block.number + duration;
+
+		remittances[secret] = curRemittance;
+		LogDeposit(msg.sender, receiver, msg.value, curRemittance.deadline);
 	}
 
 	/*
 		Withdraw the balance by providing the secret passwords.
 	*/
-	function withdraw(string password1, string password2)
+	function withdraw(bytes32 secret)
 		public
 	{
-		// Compute secret
-		bytes32 secret = keccak256(msg.sender, password1, password2);
-		uint remitAmt = remitBalances[secret];
+		// Retrieve remittance
+		RemitStruct memory _remittance = remittances[secret];
 
 		// Validate if secret is correct
-		require(remitAmt > 0);
+		require(_remittance.remitOwner != address(0));
 
-		remitBalances[secret] = 0;
-		LogWithdraw(msg.sender, remitAmt);
+		// Validate that current block has not exceed deadline.
+		// Only remittance owner is able to withdraw the funds back after deadline has exceeded.
+		require(block.number <= _remittance.deadline || msg.sender == _remittance.remitOwner);
+
+		delete remittances[secret];
+		LogWithdraw(msg.sender, _remittance.remitAmt, _remittance.deadline);
 
 		// Interact with untrusted address last.
-		msg.sender.transfer(remitAmt);
+		msg.sender.transfer(_remittance.remitAmt);
 	}
 
 	/*
