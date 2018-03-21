@@ -12,6 +12,7 @@ contract Remittance{
 		address remitReceiver;
 		uint remitAmt;
 		uint deadline;
+		bool hasWithdrawn;
 	}
 
 	function Remittance() public{
@@ -43,6 +44,7 @@ contract Remittance{
 		curRemittance.remitReceiver = receiver;
 		curRemittance.remitAmt = msg.value;
 		curRemittance.deadline = block.number + duration;
+		curRemittance.hasWithdrawn = false;
 
 		remittances[secret] = curRemittance;
 		LogDeposit(msg.sender, receiver, msg.value, curRemittance.deadline);
@@ -51,20 +53,25 @@ contract Remittance{
 	/*
 		Withdraw the balance by providing the secret passwords.
 	*/
-	function withdraw(bytes32 secret)
+	function withdraw(address secretKey, bytes32 secret)
 		public
 	{
 		// Retrieve remittance
-		RemitStruct memory _remittance = remittances[secret];
+		bytes32 realSecret = keccak256(secretKey, secret);
+		RemitStruct memory _remittance = remittances[realSecret];
 
-		// Validate if secret is correct
+		// Validate if realSecret is correct
 		require(_remittance.remitOwner != address(0));
+
+		// Validate if remittance has already been withdrawn
+		require(_remittance.hasWithdrawn == false);
 
 		// Validate that current block has not exceed deadline.
 		// Only remittance owner is able to withdraw the funds back after deadline has exceeded.
-		require(block.number <= _remittance.deadline || msg.sender == _remittance.remitOwner);
+		require((block.number <= _remittance.deadline && msg.sender == _remittance.remitReceiver) || msg.sender == _remittance.remitOwner);
 
-		delete remittances[secret];
+		// Soft delete.
+		remittances[realSecret].hasWithdrawn = true;
 		LogWithdraw(msg.sender, _remittance.remitAmt, _remittance.deadline);
 
 		// Interact with untrusted address last.
