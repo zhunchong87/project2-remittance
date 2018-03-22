@@ -4,9 +4,9 @@ contract Remittance{
 	mapping(bytes32 => RemitStruct) public remittances;
 	uint constant DURATION_LIMIT = 10;
 
-	event LogDeposit(address indexed sender, address indexed receiver, uint amount, uint deadline, bytes32 secret);
-	event LogWithdraw(address indexed withdrawer, uint amount, uint deadline, bytes32 secret);
-	event LogRefund(address indexed sender, uint amount, uint deadline, bytes32 secret);
+	event LogDeposit(address indexed sender, address indexed receiver, uint amount, uint deadline, bytes32 key);
+	event LogWithdraw(address indexed withdrawer, uint amount, uint deadline, bytes32 key);
+	event LogRefund(address indexed sender, uint amount, uint deadline, bytes32 key);
 
 	struct RemitStruct{
 		address remitSender;
@@ -20,7 +20,7 @@ contract Remittance{
 	/*
 		Accept remittance deposit. 
 	*/
-	function deposit(address receiver, uint duration, bytes32 secret) 
+	function deposit(address receiver, uint duration, bytes32 key) 
 		public 
 		payable 
 	{
@@ -30,7 +30,7 @@ contract Remittance{
 			with the exchange, waiting to be withdrawn by the receiver.
 			In this case, the deposit should be rejected so that the receiver is able to have multiple pending remittance at once.
 		*/  
-		require(remittances[secret].remitSender == address(0));
+		require(remittances[key].remitSender == address(0));
 
 		// Validate basic input
 		require(receiver != address(0));
@@ -43,8 +43,8 @@ contract Remittance{
 		curRemittance.remitBalance = msg.value;
 		curRemittance.deadline = block.number + duration;
 
-		remittances[secret] = curRemittance;
-		LogDeposit(msg.sender, receiver, msg.value, curRemittance.deadline, secret);
+		remittances[key] = curRemittance;
+		LogDeposit(msg.sender, receiver, msg.value, curRemittance.deadline, key);
 	}
 
 	/*
@@ -54,10 +54,10 @@ contract Remittance{
 		public
 	{
 		// Retrieve remittance
-		bytes32 realSecret = keccak256(msg.sender, secret);
-		RemitStruct memory _remittance = remittances[realSecret];
+		bytes32 key = keccak256(msg.sender, secret);
+		RemitStruct memory _remittance = remittances[key];
 
-		// Validate if realSecret is correct
+		// Validate if key is correct
 		require(_remittance.remitSender != address(0));
 
 		// Validate if remittance has already been withdrawn
@@ -67,8 +67,8 @@ contract Remittance{
 		require(block.number <= _remittance.deadline);
 
 		// Soft delete.
-		remittances[realSecret].remitBalance = 0;
-		LogWithdraw(msg.sender, _remittance.remitBalance, _remittance.deadline, realSecret);
+		remittances[key].remitBalance = 0;
+		LogWithdraw(msg.sender, _remittance.remitBalance, _remittance.deadline, key);
 
 		// Interact with untrusted address last.
 		msg.sender.transfer(_remittance.remitBalance);
@@ -77,13 +77,13 @@ contract Remittance{
 	/*
 		Allow refund for remittance sender if the deadline has passed.
 	*/
-	function refund(bytes32 secret)
+	function refund(bytes32 key)
 		public
 	{
 		// Retrieve remittance
-		RemitStruct memory _remittance = remittances[secret];
+		RemitStruct memory _remittance = remittances[key];
 
-		// Validate if realSecret is correct
+		// Validate if key is correct
 		require(_remittance.remitSender != address(0));
 
 		// Validate if remittance has already been withdrawn
@@ -93,8 +93,8 @@ contract Remittance{
 		require(block.number > _remittance.deadline && msg.sender == _remittance.remitSender);
 
 		// Soft delete.
-		remittances[secret].remitBalance = 0;
-		LogRefund(msg.sender, _remittance.remitBalance, _remittance.deadline, secret);
+		remittances[key].remitBalance = 0;
+		LogRefund(msg.sender, _remittance.remitBalance, _remittance.deadline, key);
 
 		// Interact with untrusted address last.
 		msg.sender.transfer(_remittance.remitBalance);
