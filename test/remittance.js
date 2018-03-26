@@ -24,7 +24,7 @@ contract("Remittance", function(accounts){
 
 	// Set the initial test state before running each test
 	beforeEach("deploy new Remittance instance", function(){
-		return Remittance.new({from: owner})
+		return Remittance.new(carol, {from: owner})
 		.then(instance => remittanceContract = instance);
 	});
 
@@ -33,6 +33,7 @@ contract("Remittance", function(accounts){
 		it("should allow Alice to deposit remittance to the ether exchange.", function(){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
+				console.log(txn);
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");

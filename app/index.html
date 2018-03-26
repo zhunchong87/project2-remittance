@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+
+<head>
+    <title>Project 2 - Remittance</title>
+    <meta charset="utf-8">
+    <!-- Bootstrap JS and CSS-->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <!-- Remittance App -->
+    <script src="/js/app.js"></script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h2>Remittance App</h2>
+        <div class="form-group row">
+            <label for="remitSenderAddress" class="col-sm-1 col-form-label">Sender Address:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="remitSenderAddress">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="remitSenderBal" class="col-sm-1 col-form-label">Sender Balance:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="remitSenderBal">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="curBlockNumber" class="col-sm-1 col-form-label">Current BlockNumber:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="curBlockNumber">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="curContractBalance" class="col-sm-1 col-form-label">Contract Balance:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="curContractBalance">
+            </div>
+        </div>
+        <hr>
+        <h3>Remittance Deposit</h3>
+        <div class="form-group row">
+            <label for="exchangeAddress" class="col-sm-1 col-form-label">ETH Exchange Address:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="exchangeAddress" placeholder="0xf17f52151ebef6c7334fad080c5704d77216b732">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="recipientPwd" class="col-sm-1 col-form-label">Recipient OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="recipientPwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="exchangePwd" class="col-sm-1 col-form-label">ETH Exchange OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="exchangePwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="remitAmount" class="col-sm-1 col-form-label">Amount (ETH):</label>
+            <div class="col-sm-3">
+                <input type="number" step=".01" class="form-control" placeholder="0" id="remitAmount">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="remitDuration" class="col-sm-1 col-form-label">Duration (in blocks):</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" placeholder="0" id="remitDuration">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-1">
+                <button class="btn btn-primary" id="depositBtn">Deposit</button>
+            </div>
+            <div class="col-5">
+                <div id="depositStatus"></div>
+            </div>
+        </div>
+        <br/>
+        <h4>Events</h4>
+        <div class="row">
+            <div class="col-8">
+                <table id="depositEventTbl" class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col">Key</th>
+                            <th scope="col">Sender</th>
+                            <th scope="col">Receiver</th>
+                            <th scope="col">Deadline</th>
+                            <th scope="col">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <h3>Remittance Withdrawal</h3>
+        <div class="form-group row">
+            <label for="withdrawExchangeAddress" class="col-sm-1 col-form-label">ETH Exchange Address:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="withdrawExchangeAddress">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="withdrawExchangeBal" class="col-sm-1 col-form-label">ETH Exchange Balance:</label>
+            <div class="col-sm-3">
+                <input type="text" readonly class="form-control-plaintext" id="withdrawExchangeBal">
+            </div>
+        </div>      
+        <div class="form-group row">
+            <label for="withdrawRecipientPwd" class="col-sm-1 col-form-label">Recipient OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="withdrawRecipientPwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="withdrawExchangePwd" class="col-sm-1 col-form-label">ETH Exchange OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="withdrawExchangePwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-1">
+                <button class="btn btn-primary" id="withdrawBtn">Withdraw</button>
+            </div>
+            <div class="col-5">
+                <div id="withdrawStatus"></div>
+            </div>
+        </div>
+        <br/>
+        <h4>Events</h4>
+        <div class="row">
+            <div class="col-8">
+                <table id="withdrawEventTbl" class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col">Key</th>
+                            <th scope="col">Withdrawer</th>
+                            <th scope="col">Deadline</th>
+                            <th scope="col">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <h3>Remittance Refund</h3>
+        <div class="form-group row">
+            <label for="refundExchangeAddress" class="col-sm-1 col-form-label">ETH Exchange Address:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="refundExchangeAddress" placeholder="0xf17f52151ebef6c7334fad080c5704d77216b732">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="refundRecipientPwd" class="col-sm-1 col-form-label">Recipient OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="refundRecipientPwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="refundExchangePwd" class="col-sm-1 col-form-label">ETH Exchange OTP:</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="refundExchangePwd" placeholder="One time password">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-1">
+                <button class="btn btn-primary" id="refundBtn">Refund</button>
+            </div>
+            <div class="col-5">
+                <div id="refundStatus"></div>
+            </div>
+        </div>
+        <br/>
+        <h4>Events</h4>
+        <div class="row">
+            <div class="col-8">
+                <table id="refundEventTbl" class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col">Key</th>
+                            <th scope="col">Sender</th>
+                            <th scope="col">Deadline</th>
+                            <th scope="col">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

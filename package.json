@@ -18,9 +18,19 @@
   "bugs": {
     "url": "https://github.com/zhunchong87/project2-remittance/issues"
   },
+  "devDependencies": {
+    "create-html": "^4.1.0",
+    "file-loader": "^1.1.11",
+    "truffle": "^4.0.7",
+    "webpack": "^4.1.1",
+    "webpack-cli": "^2.0.12"
+  },
   "dependencies": {
     "bluebird": "latest",
-    "web3-utils": "latest"
+    "web3-utils": "latest",
+    "jquery": "latest",
+    "truffle-contract": "^3.0.4",
+    "web3": "^0.20.4"
   },
   "homepage": "https://github.com/zhunchong87/project2-remittance#readme"
 }
