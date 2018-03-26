@@ -3,6 +3,7 @@ pragma solidity ^0.4.17;
 contract Remittance{
 	mapping(bytes32 => RemitStruct) public remittances;
 	uint constant DURATION_LIMIT = 10;
+	address remittanceExchange;
 
 	event LogDeposit(address indexed sender, address indexed receiver, uint amount, uint deadline, bytes32 key);
 	event LogWithdraw(address indexed withdrawer, uint amount, uint deadline, bytes32 key);
@@ -14,7 +15,8 @@ contract Remittance{
 		uint deadline;
 	}
 
-	function Remittance() public{
+	function Remittance(address _remittanceExchange) public{
+		remittanceExchange = _remittanceExchange;
 	}
 
 	/*
@@ -68,10 +70,10 @@ contract Remittance{
 
 		// Soft delete.
 		remittances[key].remitBalance = 0;
-		LogWithdraw(msg.sender, _remittance.remitBalance, _remittance.deadline, key);
+		LogWithdraw(remittanceExchange, _remittance.remitBalance, _remittance.deadline, key);
 
 		// Interact with untrusted address last.
-		msg.sender.transfer(_remittance.remitBalance);
+		remittanceExchange.transfer(_remittance.remitBalance);
 	}
 
 	/*
