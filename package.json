@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "bluebird": "latest",
-    "web3-utils": "latest",
     "jquery": "latest",
     "truffle-contract": "^3.0.4",
     "web3": "^0.20.4"

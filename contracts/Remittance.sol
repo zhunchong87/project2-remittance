@@ -56,7 +56,7 @@ contract Remittance{
 		public
 	{
 		// Retrieve remittance
-		bytes32 key = keccak256(msg.sender, secret);
+		bytes32 key = generateKey(msg.sender, secret);
 		RemitStruct memory _remittance = remittances[key];
 
 		// Validate if key is correct
@@ -102,6 +102,27 @@ contract Remittance{
 		msg.sender.transfer(_remittance.remitBalance);
 	}
 
+	/*
+		Utility for generating the key
+	*/
+	function generateKey(address sender, bytes32 secret)
+		public
+		pure
+		returns (bytes32)
+	{
+		return keccak256(sender, secret);
+	}
+
+	/*
+		Utility for generating the secret
+	*/
+	function generateSecret(bytes32 password1, bytes32 password2)
+		public
+		pure
+		returns (bytes32)
+	{
+		return keccak256(password1, password2);
+	}
 
 	/*
 	 	Do not accept any funds from other sources.

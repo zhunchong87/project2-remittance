@@ -1,7 +1,6 @@
 const Web3 = require("web3");
 const Promise = require("bluebird");
 const truffleContract = require("truffle-contract");
-const web3Utils = require("web3-utils");
 const $ = require("jquery");
 // Not to forget our built contract
 const remittanceJson = require("../../build/contracts/Remittance.json");
@@ -52,8 +51,8 @@ const depositRemittance = function() {
     console.log("remitAmt: ", remitAmt);
     console.log("duration: ", duration);
 
-    secret = web3Utils.soliditySha3(recipientPwd, exchangePwd);
-    key = web3Utils.soliditySha3(exchangeAddress, secret);
+    secret = remittanceContract.generateSecret(recipientPwd, exchangePwd);
+    key = remittanceContract.generateKey(exchangeAddress, secret);
     console.log("key: ", key);
 
     return remittanceContract.deposit.call(exchangeAddress, duration, key, { from: window.account, value: web3.toWei(remitAmt, "ether"), gas: gas })
@@ -88,9 +87,9 @@ const withdrawRemittance = function() {
     console.log("withdrawRecipientPwd: ", withdrawRecipientPwd);
     console.log("withdrawExchangePwd: ", withdrawExchangePwd);
 
-    secret = web3Utils.soliditySha3(withdrawRecipientPwd, withdrawExchangePwd);
+    secret = remittanceContract.generateSecret(withdrawRecipientPwd, withdrawExchangePwd);
     console.log("secret: ", secret);
-    console.log("key: ", web3Utils.soliditySha3(window.exchangeAccount, secret));
+    console.log("key: ", remittanceContract.generateKey(window.exchangeAccount, secret));
 
     return remittanceContract.withdraw.call(secret, { from: window.exchangeAccount, gas: gas })
         .then(function(_success) {
@@ -126,8 +125,8 @@ const refundRemittance = function() {
     console.log("recipientPwd: ", recipientPwd);
     console.log("exchangePwd: ", exchangePwd);
 
-    secret = web3Utils.soliditySha3(recipientPwd, exchangePwd);
-    key = web3Utils.soliditySha3(exchangeAddress, secret);
+    secret = remittanceContract.generateSecret(recipientPwd, exchangePwd);
+    key = remittanceContract.generateKey(exchangeAddress, secret);
     console.log("key: ", key);
 
     return remittanceContract.refund.call(key, { from: window.account, gas: gas })
