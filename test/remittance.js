@@ -2,8 +2,6 @@ var Remittance = artifacts.require("./Remittance.sol");
 const Promise = require("bluebird");
 Promise.promisifyAll(web3.eth, { suffix: "Promise" });
 
-const web3Utils = require("web3-utils");
-
 contract("Remittance", function(accounts){
 	// Declare test variables here
 	var remittanceContract;
@@ -16,16 +14,23 @@ contract("Remittance", function(accounts){
 	const remitDuration = 10; // In blocks
 
 	// Secret will consist of:
-	// Sender's Address, Ether Exchange Address, Receipient name, Exchange's OTP, Receipient's OTP
-	const secret = web3Utils.soliditySha3(alice, "bob", "password1", "password2");
-	const depositKey = web3Utils.soliditySha3(carol, secret);
-	const secret2 = web3Utils.soliditySha3(alice, "anotherPerson", "password1", "password2");
-	const depositKey2 = web3Utils.soliditySha3(carol, secret2);
+	// Exchange's OTP, Receipient's OTP
+	var secret, depositKey;
 
 	// Set the initial test state before running each test
-	beforeEach("deploy new Remittance instance", function(){
+	beforeEach("deploy new Remittance instance and generate key", function(){
 		return Remittance.new(carol, {from: owner})
-		.then(instance => remittanceContract = instance);
+		.then(function(instance){
+			remittanceContract = instance
+			return remittanceContract.generateSecret("password1", "password2");
+		})
+		.then(function(_secret){
+			secret = _secret;
+			return remittanceContract.generateKey(carol, secret);
+		})
+		.then(function(_key){
+			depositKey = _key;
+		});
 	});
 
 	// Write tests here
@@ -33,7 +38,6 @@ contract("Remittance", function(accounts){
 		it("should allow Alice to deposit remittance to the ether exchange.", function(){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
-				console.log(txn);
 				// Check deposit event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
@@ -49,7 +53,7 @@ contract("Remittance", function(accounts){
 			});
 		});
 
-		it("should not allow Alice to deposit remittance to the ether exchange if the same password is used again on the same receipient.", function(){
+		it("should not allow Alice to deposit remittance to the ether exchange if the same password is used.", function(){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
@@ -68,31 +72,6 @@ contract("Remittance", function(accounts){
 			.catch(function(err){
 				assert.include(err.message, "VM Exception while processing transaction: revert", 
 					"Alice is able to deposit twice with the same secret hash. Error is not emitted.");
-			});
-		});
-
-		it("should allow Alice to deposit remittance to the ether exchange if the same password is used on different receipients.", function(){
-			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
-			.then(function(txn){
-				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
-				return remittanceContract.deposit(carol, remitDuration, depositKey2, {from: alice, value: remitAmt})
-			})
-			.then(function(txn){
-				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey2, "Wrong secret hash.");
 			});
 		});
 
