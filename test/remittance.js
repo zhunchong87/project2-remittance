@@ -9,9 +9,13 @@ contract("Remittance", function(accounts){
 	var alice = accounts[1];
 	var carol = accounts[2];
 
+	const remitDuration = 10; 		// In blocks
+	const remitCommissionRate = 10; // In percentage
+
 	// The unit of measurement here is ether
 	const remitAmt = web3.toWei(0.01, "ether");
-	const remitDuration = 10; // In blocks
+	const remitCommission = remitAmt * (remitCommissionRate/100);
+	const remitAmtAfterCommission = remitAmt - remitCommission;
 
 	// Secret will consist of:
 	// Exchange's OTP, Receipient's OTP
@@ -19,7 +23,7 @@ contract("Remittance", function(accounts){
 
 	// Set the initial test state before running each test
 	beforeEach("deploy new Remittance instance and generate key", function(){
-		return Remittance.new(carol, {from: owner})
+		return Remittance.new(carol, remitDuration, remitCommissionRate, true, {from: owner})
 		.then(function(instance){
 			remittanceContract = instance
 			return remittanceContract.generateSecret("password1", "password2");
@@ -39,13 +43,13 @@ contract("Remittance", function(accounts){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong sender amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
 				return web3.eth.getBalancePromise(remittanceContract.address);
 			})
 			.then(function(contractBalance){
@@ -57,13 +61,13 @@ contract("Remittance", function(accounts){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong sender amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong sender amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
 				return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			})
 			.then(function(){
@@ -71,7 +75,7 @@ contract("Remittance", function(accounts){
 			})
 			.catch(function(err){
 				assert.include(err.message, "VM Exception while processing transaction: revert", 
-					"Alice is able to deposit twice with the same secret hash. Error is not emitted.");
+					"Alice is able to deposit twice with the same key. Error is not emitted.");
 			});
 		});
 
@@ -92,13 +96,13 @@ contract("Remittance", function(accounts){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong remittance amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
 			})
 		});
 
@@ -116,8 +120,8 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs.length, 1, 				 	"Withdraw event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogWithdraw",	"Event logged is not a Withdraw event.");
 				assert.strictEqual(txn.logs[0].args.withdrawer, carol, 	"Wrong withdrawer.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong withdrawal amount.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs[0].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong withdrawal amount.");
+				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong key.");
 				gasUsed = txn.receipt.gasUsed;
 				return web3.eth.getTransactionPromise(txn.tx);
 			})
@@ -127,8 +131,8 @@ contract("Remittance", function(accounts){
 			})
 			.then(function(carolAfterWithdrawBalance){
 				var txnFee = gasPrice.times(gasUsed);
-				assert.strictEqual(carolAfterWithdrawBalance.minus(carolInitialBalance).plus(txnFee).toString(10), 
-									remitAmt, 
+				assert.strictEqual(carolAfterWithdrawBalance.minus(carolInitialBalance).plus(txnFee).toNumber(10), 
+									remitAmtAfterCommission, 
 									"Something is wrong with Carol's balance after withdrawal.");
 			});
 		});
@@ -147,8 +151,8 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs.length, 1, 				 	"Withdraw event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogWithdraw",	"Event logged is not a Withdraw event.");
 				assert.strictEqual(txn.logs[0].args.withdrawer, carol, 	"Wrong withdrawer.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong withdrawal amount.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs[0].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong withdrawal amount.");
+				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong key.");
 				gasUsed = txn.receipt.gasUsed;
 				return web3.eth.getTransactionPromise(txn.tx);
 			})
@@ -158,8 +162,8 @@ contract("Remittance", function(accounts){
 			})
 			.then(function(carolAfterWithdrawBalance){
 				var txnFee = gasPrice.times(gasUsed);
-				assert.strictEqual(carolAfterWithdrawBalance.minus(carolInitialBalance).plus(txnFee).toString(10), 
-									remitAmt, 
+				assert.strictEqual(carolAfterWithdrawBalance.minus(carolInitialBalance).plus(txnFee).toNumber(10), 
+									remitAmtAfterCommission, 
 									"Something is wrong with Carol's balance after withdrawal.");
 				return remittanceContract.withdraw(secret, {from: carol});
 			})
@@ -207,13 +211,13 @@ contract("Remittance", function(accounts){
 			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
 			.then(function(txn){
 				// Check deposit event is logged
-				assert.strictEqual(txn.logs.length, 1, 				"Deposit event is not emitted.");
-				assert.strictEqual(txn.logs[0].event, "LogDeposit", "Event logged is not a Deposit event.");
-				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
-				assert.strictEqual(txn.logs[0].args.receiver, carol,"Wrong receiver.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong remittance amount.");
-				assert.strictEqual(txn.logs[0].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
 			})
 		});
 
@@ -247,8 +251,8 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs.length, 1, 				 	"Refund event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogRefund",		"Event logged is not a Refund event.");
 				assert.strictEqual(txn.logs[0].args.sender, alice, 		"Wrong refunder.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong refund amount.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs[0].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong refund amount.");
+				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong key.");
 				gasUsed = txn.receipt.gasUsed;
 				return web3.eth.getTransactionPromise(txn.tx);
 			})
@@ -258,8 +262,8 @@ contract("Remittance", function(accounts){
 			})
 			.then(function(aliceAfterWithdrawBalance){
 				var txnFee = gasPrice.times(gasUsed);
-				assert.strictEqual(aliceAfterWithdrawBalance.minus(aliceInitialBalance).plus(txnFee).toString(10), 
-									remitAmt, 
+				assert.strictEqual(aliceAfterWithdrawBalance.minus(aliceInitialBalance).plus(txnFee).toNumber(10), 
+									remitAmtAfterCommission, 
 									"Something is wrong with Alice's balance after refund.");
 			});
 		});
@@ -294,8 +298,8 @@ contract("Remittance", function(accounts){
 				assert.strictEqual(txn.logs.length, 1, 				 	"Refund event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogRefund",		"Event logged is not a Refund event.");
 				assert.strictEqual(txn.logs[0].args.sender, alice, 		"Wrong refunder.");
-				assert.strictEqual(txn.logs[0].args.amount.toString(10), remitAmt, "Wrong refund amount.");
-				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong secret hash.");
+				assert.strictEqual(txn.logs[0].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong refund amount.");
+				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong key.");
 				gasUsed = txn.receipt.gasUsed;
 				return web3.eth.getTransactionPromise(txn.tx);
 			})
@@ -305,8 +309,8 @@ contract("Remittance", function(accounts){
 			})
 			.then(function(aliceAfterWithdrawBalance){
 				var txnFee = gasPrice.times(gasUsed);
-				assert.strictEqual(aliceAfterWithdrawBalance.minus(aliceInitialBalance).plus(txnFee).toString(10), 
-									remitAmt, 
+				assert.strictEqual(aliceAfterWithdrawBalance.minus(aliceInitialBalance).plus(txnFee).toNumber(10), 
+									remitAmtAfterCommission, 
 									"Something is wrong with Alice's balance after refund.");
 				return remittanceContract.refund(depositKey, {from: alice});
 			})
@@ -327,6 +331,244 @@ contract("Remittance", function(accounts){
 			.catch(function(err){
 				assert.include(err.message, "VM Exception while processing transaction: revert", 
 					"Alice is able to refund even before the deadline exceed. Error is not emitted.");
+			});
+		});
+	});
+
+	describe("commission", function(){
+		beforeEach("deposit remit amount", function(){
+			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
+			.then(function(txn){
+				// Check commission deposit event is logged
+				assert.strictEqual(txn.logs.length, 2, 				"Commission deposit event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogCommissionDeposit", "Event logged is not a Commission deposit event.");
+				assert.strictEqual(txn.logs[0].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[0].args.owner, owner,"Wrong receiver.");
+				assert.strictEqual(txn.logs[0].args.ownerCommission.toNumber(10), remitCommission, "Wrong commission amount.");
+				assert.strictEqual(txn.logs[0].args.key, depositKey, "Wrong key.");
+
+				// Check deposit event is logged
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
+			})
+		});
+
+		it("should give owner commission when there is a remittance deposit.", function(){
+			return remittanceContract.getOwnerCommission()
+			.then(function(_ownerCommission){
+				assert.strictEqual(_ownerCommission.toNumber(10), remitCommission, "Incorrect owner commission given.");
+			});
+		});
+
+		it("should allow owner to withdraw commission.", function(){
+			return remittanceContract.withdrawCommission()
+			.then(function(txn){
+				// Check commission withdraw event is logged
+				assert.strictEqual(txn.logs.length, 1, 				"Commission withdraw event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogCommissionWithdraw", "Event logged is not a Commission withdraw event.");
+				assert.strictEqual(txn.logs[0].args.owner, owner, 	"Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.ownerCommission.toNumber(10), remitCommission, "Wrong commission amount.");
+			});
+		});
+	});
+
+	describe("kill switch/stoppable", function(){
+		it("should allow owner to stop the contract.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+			});
+		});
+
+		it("should not allow owner to stop the contract twice.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.stop({from: owner});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should allow owner to resume the contract.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.resume({from: owner});
+			})
+			.then(function(txn){
+				// Check resume event is logged
+				assert.strictEqual(txn.logs.length, 1, "Resume event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogResume", "Event logged is not a Resume event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, true, "Wrong active status.");
+			});
+		});
+
+		it("should not allow owner to resume the contract twice.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.resume({from: owner});
+			})
+			.then(function(txn){
+				// Check resume event is logged
+				assert.strictEqual(txn.logs.length, 1, "Resume event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogResume", "Event logged is not a Resume event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, true, "Wrong active status.");
+				return remittanceContract.resume({from: owner});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should not allow others to stop the contract.", function(){
+			return remittanceContract.stop({from: alice})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should not allow others to resume the contract.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.resume({from: alice});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should not allow remittance sender to deposit when the contract is stopped.", function(){
+			return remittanceContract.stop({from: owner})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should not allow remittance exchange to withdraw when the contract is stopped.", function(){
+			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
+			.then(function(txn){
+				// Check deposit event is logged
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
+				return remittanceContract.stop({from: owner});
+			})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.withdraw(secret, {from: carol});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+			});
+		});
+
+		it("should not allow remittance sender to refund when the contract is stopped.", function(){
+			var currentDuration = 0;
+
+			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
+			.then(function(txn){
+				// Check deposit event is logged
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
+				return remittanceContract.stop({from: owner});
+			})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				
+				// Simulate block increment
+				currentDuration++;
+				const tryAgain = () => web3.eth.sendTransactionPromise({from: owner, to: alice, value: 0})
+				 .then(function(){
+				 	if(currentDuration < remitDuration){
+				 		currentDuration++;
+				 		return Promise.delay(100).then(tryAgain);
+				 	}
+				 	else{
+				 		return remittanceContract.refund(depositKey, {from: alice});
+				 	}
+				 });
+
+				 return tryAgain();				
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
 			});
 		});
 	});
