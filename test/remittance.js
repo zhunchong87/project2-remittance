@@ -366,13 +366,43 @@ contract("Remittance", function(accounts){
 		});
 
 		it("should allow owner to withdraw commission.", function(){
-			return remittanceContract.withdrawCommission()
+			var ownerInitialBalance;
+			var gasUsed, gasPrice;
+
+			return web3.eth.getBalancePromise(owner)
+			.then(function(_initialBalance){
+				ownerInitialBalance = _initialBalance;
+				return remittanceContract.withdrawCommission({from: owner});
+			})
 			.then(function(txn){
 				// Check commission withdraw event is logged
 				assert.strictEqual(txn.logs.length, 1, 				"Commission withdraw event is not emitted.");
 				assert.strictEqual(txn.logs[0].event, "LogCommissionWithdraw", "Event logged is not a Commission withdraw event.");
 				assert.strictEqual(txn.logs[0].args.owner, owner, 	"Wrong owner.");
 				assert.strictEqual(txn.logs[0].args.ownerCommission.toNumber(10), remitCommission, "Wrong commission amount.");
+				gasUsed = txn.receipt.gasUsed;
+				return web3.eth.getTransactionPromise(txn.tx);
+			})
+			.then(function(txn){
+				gasPrice = txn.gasPrice;
+				return web3.eth.getBalancePromise(owner);
+			})
+			.then(function(_ownerAfterWithdrawBalance){
+				var txnFee = gasPrice.times(gasUsed);
+				assert.strictEqual(_ownerAfterWithdrawBalance.minus(ownerInitialBalance).plus(txnFee).toNumber(10), 
+									remitCommission, 
+									"Incorrect commission amount withdrawn.");
+			});
+		});
+
+		it("should not allow others to withdraw commission.", function(){
+			return remittanceContract.withdrawCommission({from: alice})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Alice is able to withdraw commission even if she is not the owner. Error is not emitted.");
 			});
 		});
 	});
@@ -403,7 +433,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Owner is able to stop the contract twice. Error is not emitted.");
 			});
 		});
 
@@ -448,7 +479,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Owner is able to resume the contract twice. Error is not emitted.");
 			});
 		});
 
@@ -458,7 +490,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Others is able to stop the contract. Error is not emitted.");
 			});
 		});
 
@@ -476,7 +509,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Others is able to resume the contract. Error is not emitted.");
 			});
 		});
 
@@ -494,7 +528,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Remittance sender is able to deposit when contract is stopped. Error is not emitted.");
 			});
 		});
 
@@ -523,7 +558,8 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Remittance exchange is able to withdraw when contract is stopped. Error is not emitted.");
 			});
 		});
 
@@ -568,7 +604,135 @@ contract("Remittance", function(accounts){
 				assert.fail();
 			})
 			.catch(function(err){
-				assert.include(err.message, "VM Exception while processing transaction: revert", "Error is not emitted.");
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Remittance sender is able to refund when the contract is stopped. Error is not emitted.");
+			});
+		});
+
+		it("should not allow contract owner to withdraw commission when the contract is stopped.", function(){
+			return remittanceContract.deposit(carol, remitDuration, depositKey, {from: alice, value: remitAmt})
+			.then(function(txn){
+				// Check deposit event is logged
+				assert.strictEqual(txn.logs.length, 2, 				"Deposit event is not emitted.");
+				assert.strictEqual(txn.logs[1].event, "LogDeposit", "Event logged is not a Deposit event.");
+				assert.strictEqual(txn.logs[1].args.sender, alice, 	"Wrong sender.");
+				assert.strictEqual(txn.logs[1].args.receiver, carol,"Wrong receiver.");
+				assert.strictEqual(txn.logs[1].args.amount.toNumber(10), remitAmtAfterCommission, "Wrong remittance amount.");
+				assert.strictEqual(txn.logs[1].args.deadline.toNumber(10), web3.eth.blockNumber + remitDuration, "Wrong deadline.");
+				assert.strictEqual(txn.logs[1].args.key, depositKey, "Wrong key.");
+				return remittanceContract.stop({from: owner});
+			})
+			.then(function(txn){
+				// Check stop event is logged
+				assert.strictEqual(txn.logs.length, 1, "Stop event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogStop", "Event logged is not a Stop event.");
+				assert.strictEqual(txn.logs[0].args.sender, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.isActive, false, "Wrong active status.");
+				return remittanceContract.withdrawCommission({from: owner});
+			})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Contract owner is able to withdraw commission when contract is stopped. Error is not emitted.");
+			});
+		});
+	});
+
+	describe("getter/setter", function(){
+		it("should be able to get the duration limit.", function(){
+			return remittanceContract.getDurationLimit()
+			.then(function(_durationLimit){
+				assert.strictEqual(_durationLimit.toNumber(10), remitDuration, "Wrong duration limit.");
+			});
+		});
+
+		it("should be able to get the commission rate.", function(){
+			return remittanceContract.getCommissionRate()
+			.then(function(_commissionRate){
+				assert.strictEqual(_commissionRate.toNumber(10), remitCommissionRate, "Wrong commission rate.");
+			});
+		});
+
+		it("should be able to get the remittance exchange address.", function(){
+			return remittanceContract.getRemittanceExchange()
+			.then(function(_remittanceExchange){
+				assert.strictEqual(_remittanceExchange, carol, "Wrong remittance exchange address.");
+			});
+		});
+
+		it("should be able to get the contract owner commission amount.", function(){
+			return remittanceContract.getOwnerCommission()
+			.then(function(_ownerCommission){
+				assert.strictEqual(_ownerCommission.toNumber(10), 0, "Wrong owner commission amount.");
+			});
+		});
+
+		it("should allow owner to set the duration limit.", function(){
+			return remittanceContract.setDurationLimit(15, {from: owner})
+			.then(function(txn){
+				// Check set duration limit event is logged
+				assert.strictEqual(txn.logs.length, 1, "Set duration limit event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogSetDurationLimit", "Event logged is not a set duration limit event.");
+				assert.strictEqual(txn.logs[0].args.owner, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.newDurationLimit.toNumber(10), 15, "Wrong duration limit.");
+			});
+		});
+
+		it("should allow owner to set the commission rate.", function(){
+			return remittanceContract.setCommissionRate(15, {from: owner})
+			.then(function(txn){
+				// Check set commission rate event is logged
+				assert.strictEqual(txn.logs.length, 1, "Set commission rate event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogSetCommissionRate", "Event logged is not a set commission rate event.");
+				assert.strictEqual(txn.logs[0].args.owner, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.newCommissionRate.toNumber(10), 15, "Wrong commission rate.");
+			});
+		});
+
+		it("should allow owner to set the remittance exchange.", function(){
+			return remittanceContract.setRemittanceExchange(alice, {from: owner})
+			.then(function(txn){
+				// Check set remittance exchange event is logged
+				assert.strictEqual(txn.logs.length, 1, "Set remittance exchange event is not emitted.");
+				assert.strictEqual(txn.logs[0].event, "LogSetRemittanceExchange", "Event logged is not a set remittance exchange event.");
+				assert.strictEqual(txn.logs[0].args.owner, owner, "Wrong owner.");
+				assert.strictEqual(txn.logs[0].args.oldRemittanceExchange, carol, "Wrong old remittance exchange address.");
+				assert.strictEqual(txn.logs[0].args.newRemittanceExchange, alice, "Wrong new remittance exchange address.");
+			});
+		});
+
+		it("should not allow others to set the duration limit.", function(){
+			return remittanceContract.setDurationLimit(15, {from: alice})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Others is able to set the duration limit. Error is not emitted.");
+			});
+		});
+
+		it("should not allow others to set the commission rate.", function(){
+			return remittanceContract.setCommissionRate(15, {from: alice})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Others is able to set the commission rate. Error is not emitted.");
+			});
+		});
+
+		it("should not allow others to set the remittance exchange.", function(){
+			return remittanceContract.setRemittanceExchange(alice, {from: alice})
+			.then(function(){
+				assert.fail();
+			})
+			.catch(function(err){
+				assert.include(err.message, "VM Exception while processing transaction: revert", 
+					"Others is able to set the remittance exchange. Error is not emitted.");
 			});
 		});
 	});
